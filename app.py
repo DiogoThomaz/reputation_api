@@ -5,11 +5,12 @@ import uvicorn
 from fastapi import FastAPI
 
 from api.controllers import auth_router
-from api.middlewares import AuthMiddleware
+from api.middlewares import AccessLogMiddleware, AuthMiddleware
 from reputation_worker.postgres import PostgresClient
 
 app = FastAPI()
 app.add_middleware(AuthMiddleware)
+app.add_middleware(AccessLogMiddleware)
 app.include_router(auth_router)
 app.state.db = PostgresClient()
 
