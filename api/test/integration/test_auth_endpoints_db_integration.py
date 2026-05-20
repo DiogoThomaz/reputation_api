@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from api.app import create_app
+from api.main import app
 
 
 pytestmark = pytest.mark.integration
@@ -11,7 +11,6 @@ pytestmark = pytest.mark.integration
 
 @pytest.fixture
 def client(writable_db):
-    app = create_app()
     app.state.db = writable_db
     return TestClient(app)
 
