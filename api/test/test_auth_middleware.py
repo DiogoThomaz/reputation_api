@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
+from pytest import MonkeyPatch
 
 from api.middlewares.auth_middleware import AuthMiddleware
 from api.models import UserModel
@@ -11,7 +12,7 @@ class DummyDB:
     pass
 
 
-def _build_app(user):
+def _build_app():
     app = FastAPI()
     app.state.db = DummyDB()
     app.add_middleware(AuthMiddleware)
@@ -27,7 +28,7 @@ def _build_app(user):
     return app
 
 
-def _patch_user_lookup(monkeypatch, returned_user):
+def _patch_user_lookup(monkeypatch: MonkeyPatch, returned_user: UserModel):
     def fake_get_user_by_token(self, token):
         if token == "valid-token":
             return returned_user
@@ -36,9 +37,12 @@ def _patch_user_lookup(monkeypatch, returned_user):
     monkeypatch.setattr("api.services.user_service.UserService.get_user_by_token", fake_get_user_by_token)
 
 
-def test_public_route_is_accessible_without_token(monkeypatch, user_model: UserModel):
-    _patch_user_lookup(monkeypatch, user_model)
-    client = TestClient(_build_app(user_model))
+def test_public_route_is_accessible_without_token(monkeypatch: MonkeyPatch):
+    def fail_if_called(self, token):
+        raise AssertionError("public routes must not lookup users")
+
+    monkeypatch.setattr("api.services.user_service.UserService.get_user_by_token", fail_if_called)
+    client = TestClient(_build_app())
 
     response = client.get("/health")
 
@@ -48,7 +52,7 @@ def test_public_route_is_accessible_without_token(monkeypatch, user_model: UserM
 
 def test_protected_route_requires_token(monkeypatch, user_model: UserModel):
     _patch_user_lookup(monkeypatch, user_model)
-    client = TestClient(_build_app(user_model))
+    client = TestClient(_build_app())
 
     response = client.get("/protected")
 
@@ -57,7 +61,7 @@ def test_protected_route_requires_token(monkeypatch, user_model: UserModel):
 
 def test_protected_route_rejects_invalid_token(monkeypatch, user_model: UserModel):
     _patch_user_lookup(monkeypatch, user_model)
-    client = TestClient(_build_app(user_model))
+    client = TestClient(_build_app())
 
     response = client.get("/protected", headers={"Authorization": "Bearer invalid-token"})
 
@@ -66,7 +70,7 @@ def test_protected_route_rejects_invalid_token(monkeypatch, user_model: UserMode
 
 def test_protected_route_accepts_valid_token(monkeypatch, user_model: UserModel):
     _patch_user_lookup(monkeypatch, user_model)
-    client = TestClient(_build_app(user_model))
+    client = TestClient(_build_app())
 
     response = client.get("/protected", headers={"Authorization": "Bearer valid-token"})
 
