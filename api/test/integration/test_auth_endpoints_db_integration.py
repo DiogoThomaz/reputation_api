@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from api.main import app
+from main import app
 
 
 pytestmark = pytest.mark.integration
