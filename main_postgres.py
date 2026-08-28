@@ -8,15 +8,42 @@ from reputation_worker.scrapers.reclame_aqui import ReclameAquiScraper
 
 logger = logging.getLogger(__name__)
 
-def _check_id_exist(db: PostgresClient, source: str, external_id: str, empresa: str) -> bool:
-        
-        result = db.execute(
-            query="SELECT 1 FROM reviews_v1 WHERE source = %s AND external_id = %s AND empresa = %s",
-            params=(source, external_id, empresa,),
-        )
-        return result["rowcount"] > 0
+BATCH_SIZE = 50
 
-def run_playstore(db: PostgresClient, call_check_id: callable = _check_id_exist):
+
+def _check_id_exist(db: PostgresClient, source: str, external_id: str, empresa: str) -> bool:
+    result = db.execute(
+        query="SELECT 1 FROM reviews_v1 WHERE source = %s AND external_id = %s AND empresa = %s",
+        params=(source, external_id, empresa,),
+    )
+    return result["rowcount"] > 0
+
+
+def _existing_ids(db: PostgresClient, source: str, empresa: str, ids: list[str]) -> set[str]:
+    """Retorna os external_id ja presentes no banco (consulta em lote)."""
+    if not ids:
+        return set()
+    placeholders = ", ".join(["%s"] * len(ids))
+    result = db.execute(
+        query=(
+            "SELECT external_id FROM reviews_v1 "
+            f"WHERE source = %s AND external_id IN ({placeholders}) AND empresa = %s"
+        ),
+        params=(source, *ids, empresa),
+    )
+    return {row["external_id"] for row in result["rows"]}
+
+
+def _insert_batches(db: PostgresClient, table_cols: str, row_template: str, rows: list[dict[str, str]], chunk: int) -> None:
+    """Insere em lotes multi-row: 1 round-trip por lote."""
+    for start in range(0, len(rows), chunk):
+        batch = rows[start : start + chunk]
+        values = ", ".join([row_template] * len(batch))
+        params = [value for row in batch for value in row.values()]
+        db.execute(f"INSERT INTO reviews_v1 {table_cols} VALUES {values}", params)
+
+
+def run_playstore(db: PostgresClient, chunk_size: int = BATCH_SIZE):
     rows = db.execute("SELECT * FROM empresa")
     empresas = rows["rows"]
     logger.info("Iniciando coleta Play Store | empresas=%d", len(empresas))
@@ -34,23 +61,39 @@ def run_playstore(db: PostgresClient, call_check_id: callable = _check_id_exist)
 
         logger.info("[Play Store] Coletando | empresa=%s app_id=%s", empresa_nome, playstore_id)
         scrapper = PlayStoreScraper()
-        reviews = scrapper.scrape(app_id=playstore_id)
+        reviews = list(scrapper.scrape(app_id=playstore_id))
 
         inseridos = 0
         pulados = 0
-        for review in reviews:
-            exist = call_check_id(db, "playstore", review["id"], empresa_nome)
-            if exist:
-                logger.debug("[Play Store] Review ja existe, pulando | id=%s empresa=%s", review["id"], empresa_nome)
-                pulados += 1
+        for start in range(0, len(reviews), chunk_size):
+            chunk = reviews[start : start + chunk_size]
+            existing = _existing_ids(db, "playstore", empresa_nome, [review["id"] for review in chunk])
+            novos = [review for review in chunk if review["id"] not in existing]
+
+            pulados += len(chunk) - len(novos)
+            if not novos:
                 continue
 
-            db.execute(
-                query="insert into reviews_v1 (source, empresa, data, review, quantidade_estrelas, external_id) values (%s, %s, %s, %s, %s, %s)",
-                params=("playstore", empresa_nome, review["data"], review["review"], review["quantidade_estrelas"], review["id"],),
+            rows_to_insert = [
+                {
+                    "source": "playstore",
+                    "empresa": empresa_nome,
+                    "data": review["data"],
+                    "review": review["review"],
+                    "quantidade_estrelas": review["quantidade_estrelas"],
+                    "external_id": review["id"],
+                }
+                for review in novos
+            ]
+            _insert_batches(
+                db,
+                table_cols="(source, empresa, data, review, quantidade_estrelas, external_id)",
+                row_template="(%s, %s, %s, %s, %s, %s)",
+                rows=rows_to_insert,
+                chunk=chunk_size,
             )
-            inseridos += 1
-            logger.debug("[Play Store] Review inserido | id=%s empresa=%s", review["id"], empresa_nome)
+            inseridos += len(novos)
+            logger.debug("[Play Store] Lote inserido | empresa=%s novos=%d", empresa_nome, len(novos))
 
         logger.info(
             "[Play Store] Empresa concluida | empresa=%s inseridos=%d pulados=%d",
@@ -58,7 +101,7 @@ def run_playstore(db: PostgresClient, call_check_id: callable = _check_id_exist)
         )
 
 
-def run_reclame_aqui(db: PostgresClient, call_check_id: callable = _check_id_exist):
+def run_reclame_aqui(db: PostgresClient, chunk_size: int = BATCH_SIZE):
     rows = db.execute("SELECT * FROM empresa")
     empresas = rows["rows"]
     logger.info("Iniciando coleta Reclame Aqui | empresas=%d", len(empresas))
@@ -77,23 +120,40 @@ def run_reclame_aqui(db: PostgresClient, call_check_id: callable = _check_id_exi
         logger.info("[Reclame Aqui] Coletando | empresa=%s slug=%s", empresa_nome, reclame_aqui_id)
 
         with ReclameAquiScraper(max_pages=50) as scrapper:
-            reviews = scrapper.scrape(nome_empresa=reclame_aqui_id)
+            reviews = list(scrapper.scrape(nome_empresa=reclame_aqui_id))
 
             inseridos = 0
             pulados = 0
-            for review in reviews:
-                exist = call_check_id(db, "reclame_aqui", review["id"], empresa_nome)
-                if exist:
-                    logger.debug("[Reclame Aqui] Review ja existe, pulando | id=%s empresa=%s", review["id"], empresa_nome)
-                    pulados += 1
+            for start in range(0, len(reviews), chunk_size):
+                chunk = reviews[start : start + chunk_size]
+                existing = _existing_ids(db, "reclame_aqui", empresa_nome, [review["id"] for review in chunk])
+                novos = [review for review in chunk if review["id"] not in existing]
+
+                pulados += len(chunk) - len(novos)
+                if not novos:
                     continue
 
-                db.execute(
-                    query="insert into reviews_v1 (source, empresa, data, review, titulo, local, external_id) values (%s, %s, %s, %s, %s, %s, %s)",
-                    params=("reclame_aqui", empresa_nome, review["data"], review["reclamacao"], review["titulo"], review["local"], review["id"],),
+                rows_to_insert = [
+                    {
+                        "source": "reclame_aqui",
+                        "empresa": empresa_nome,
+                        "data": review["data"],
+                        "review": review["reclamacao"],
+                        "titulo": review["titulo"],
+                        "local": review["local"],
+                        "external_id": review["id"],
+                    }
+                    for review in novos
+                ]
+                _insert_batches(
+                    db,
+                    table_cols="(source, empresa, data, review, titulo, local, external_id)",
+                    row_template="(%s, %s, %s, %s, %s, %s, %s)",
+                    rows=rows_to_insert,
+                    chunk=chunk_size,
                 )
-                inseridos += 1
-                logger.debug("[Reclame Aqui] Reclamacao inserida | id=%s empresa=%s titulo=%s", review["id"], empresa_nome, review.get("titulo", "")[:60])
+                inseridos += len(novos)
+                logger.debug("[Reclame Aqui] Lote inserido | empresa=%s novos=%d", empresa_nome, len(novos))
 
         logger.info(
             "[Reclame Aqui] Empresa concluida | empresa=%s inseridos=%d pulados=%d",
@@ -114,8 +174,8 @@ def main() -> None:
         try:
             db = PostgresClient()
             logger.info("Iniciando ciclo de coleta")
-            run_reclame_aqui(db=db, call_check_id=_check_id_exist)
-            run_playstore(db=db, call_check_id=_check_id_exist)
+            run_reclame_aqui(db=db)
+            run_playstore(db=db)
             logger.info("Ciclo de coleta finalizado")
         except Exception as e:
             logger.exception("Erro durante a coleta: %s", e)

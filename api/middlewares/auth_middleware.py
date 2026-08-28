@@ -8,18 +8,27 @@ from api.services.user_service import UserService
 
 
 PUBLIC_PATHS = {
+    "/",
+    "/favicon.ico",
     "/health",
     "/docs",
     "/redoc",
     "/openapi.json",
     "/auth/login",
     "/auth/register",
+    "/collect",
 }
+
+
+def _is_public(path: str) -> bool:
+    if path in PUBLIC_PATHS:
+        return True
+    return path.startswith("/stream/")
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in PUBLIC_PATHS:
+        if _is_public(request.url.path):
             return await call_next(request)
 
         auth_header = request.headers.get("Authorization", "")

@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reputation — Reputação de apps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b14;
+    --bg-soft: #0a0f1c;
+    --panel: #0d1424;
+    --card: #111a2e;
+    --card-hover: #141f36;
+    --border: rgba(148, 163, 184, 0.13);
+    --border-strong: rgba(148, 163, 184, 0.25);
+    --text: #e6ecf7;
+    --muted: #93a1b8;
+    --muted-2: #5c6b84;
+    --accent: #6366f1;
+    --accent-2: #38bdf8;
+    --grad: linear-gradient(135deg, #6366f1 0%, #38bdf8 100%);
+    --ok: #34d399;
+    --err: #fb7185;
+    --neu: #94a3b8;
+    --star: #fbbf24;
+    --radius: 16px;
+    --shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.6);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    background:
+      radial-gradient(1100px 500px at 15% -10%, rgba(99, 102, 241, 0.14), transparent 60%),
+      radial-gradient(900px 450px at 90% -5%, rgba(56, 189, 248, 0.10), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+  /* ============ NAV ============ */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(14px);
+    background: rgba(7, 11, 20, 0.75);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner { display: flex; align-items: center; gap: 12px; padding: 14px 0; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 16px; letter-spacing: -0.2px; }
+  .brand svg { display: block; }
+  .brand em { font-style: normal; color: var(--muted); font-weight: 500; font-size: 13px; }
+  .nav-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+  .api-link { color: var(--muted-2); font-size: 12.5px; text-decoration: none; border: 1px solid var(--border); padding: 5px 12px; border-radius: 999px; transition: all .2s; }
+  .api-link:hover { color: var(--text); border-color: var(--border-strong); }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 600; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px;
+  }
+  .pill .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted-2); }
+  .pill.online { color: var(--ok); border-color: rgba(52, 211, 153, 0.35); background: rgba(52, 211, 153, 0.07); }
+  .pill.online .dot { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .pill.offline { color: var(--err); border-color: rgba(251, 113, 133, 0.35); background: rgba(251, 113, 133, 0.07); }
+  .pill.offline .dot { background: var(--err); }
+
+  /* ============ HERO ============ */
+  header.hero { padding: 64px 0 40px; text-align: center; }
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+    color: #a5b4fc; background: rgba(99, 102, 241, 0.10);
+    border: 1px solid rgba(99, 102, 241, 0.30);
+    border-radius: 999px; padding: 6px 14px; margin-bottom: 22px;
+  }
+  .hero-badge .pulse { width: 6px; height: 6px; border-radius: 50%; background: #a5b4fc; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .hero h1 {
+    font-size: clamp(30px, 5vw, 46px); font-weight: 800; letter-spacing: -1.2px; line-height: 1.12;
+    background: linear-gradient(180deg, #ffffff 30%, #9fb0d0 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero h1 .grad {
+    background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .hero p { color: var(--muted); max-width: 560px; margin: 16px auto 0; font-size: 16px; }
+
+  /* ============ SEARCH ============ */
+  .search-card {
+    max-width: 720px; margin: 34px auto 0;
+    background: linear-gradient(180deg, rgba(17, 26, 46, 0.9), rgba(13, 20, 36, 0.9));
+    border: 1px solid var(--border); border-radius: 20px; padding: 10px;
+    box-shadow: var(--shadow);
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  }
+  .search-card:focus-within { border-color: rgba(99, 102, 241, 0.5); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12), var(--shadow); }
+  .search-card input {
+    flex: 1 1 240px; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: inherit; font-size: 15.5px; font-weight: 500;
+    padding: 12px 14px; min-width: 0;
+  }
+  .search-card input::placeholder { color: var(--muted-2); }
+  .search-card select {
+    background: var(--bg-soft); color: var(--text); border: 1px solid var(--border);
+    border-radius: 12px; padding: 12px 10px; font-family: inherit; font-size: 13.5px; font-weight: 500;
+    outline: none; cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2393a1b8' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+    padding-right: 30px;
+  }
+  .search-card select:focus { border-color: var(--accent); }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px; justify-content: center;
+    background: var(--grad); color: #fff; border: none; cursor: pointer;
+    font-family: inherit; font-weight: 700; font-size: 15px;
+    border-radius: 12px; padding: 13px 22px; transition: filter .2s, transform .1s;
+    box-shadow: 0 8px 24px -8px rgba(99, 102, 241, 0.55);
+  }
+  .btn:hover { filter: brightness(1.12); }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; filter: none; }
+  .btn .spin {
+    width: 15px; height: 15px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+    animation: spin 0.8s linear infinite; display: none;
+  }
+  .btn.loading .spin { display: inline-block; }
+  .btn.loading .lbl { opacity: 0.85; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .examples { max-width: 720px; margin: 16px auto 0; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; align-items: center; }
+  .examples span { color: var(--muted-2); font-size: 13px; }
+  .examples button {
+    background: rgba(148, 163, 184, 0.07); border: 1px solid var(--border); color: var(--muted);
+    font-family: inherit; font-size: 12.5px; cursor: pointer; border-radius: 999px; padding: 5px 13px; transition: all .2s;
+  }
+  .examples button:hover { color: var(--text); border-color: var(--border-strong); background: rgba(148, 163, 184, 0.12); }
+
+  /* ============ HOW IT WORKS (idle) ============ */
+  #pipeline { margin: 58px 0 40px; }
+  .section-title { text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 22px; }
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .step {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 24px 22px; position: relative; overflow: hidden; transition: border-color .2s, transform .2s;
+  }
+  .step:hover { border-color: var(--border-strong); transform: translateY(-2px); }
+  .step .num {
+    position: absolute; top: 10px; right: 16px; font-size: 56px; font-weight: 800; line-height: 1;
+    color: rgba(148, 163, 184, 0.08); letter-spacing: -2px;
+  }
+  .step .icon {
+    width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.25); margin-bottom: 16px;
+  }
+  .step h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+  .step p { color: var(--muted); font-size: 13.5px; }
+
+  /* ============ DASHBOARD ============ */
+  .hidden { display: none !important; }
+
+  .banner { border-radius: 14px; padding: 14px 18px; font-size: 14px; font-weight: 500; margin-bottom: 18px; display: flex; gap: 10px; align-items: center; }
+  .banner.err { background: rgba(251, 113, 133, 0.09); border: 1px solid rgba(251, 113, 133, 0.4); color: #fda4af; }
+  .banner.ok { background: rgba(52, 211, 153, 0.08); border: 1px solid rgba(52, 211, 153, 0.35); color: #6ee7b7; }
+
+  .job-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+  .job-head .app-name { font-size: 20px; font-weight: 800; letter-spacing: -0.4px; }
+  .job-head .app-id { font-family: "JetBrains Mono", monospace; font-size: 12px; color: var(--muted-2); background: var(--bg-soft); border: 1px solid var(--border); padding: 3px 9px; border-radius: 8px; }
+  .status-badge { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; border-radius: 999px; padding: 5px 13px; margin-left: auto; }
+  .status-badge.running { color: var(--accent-2); background: rgba(56, 189, 248, 0.09); border: 1px solid rgba(56, 189, 248, 0.35); }
+  .status-badge.running .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-2); animation: pulse 1s infinite; }
+  .status-badge.done { color: var(--ok); background: rgba(52, 211, 153, 0.09); border: 1px solid rgba(52, 211, 153, 0.35); }
+  .status-badge.error { color: var(--err); background: rgba(251, 113, 133, 0.09); border: 1px solid rgba(251, 113, 133, 0.35); }
+
+  .progress-wrap { margin-bottom: 22px; }
+  .progress-meta { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .progress-meta b { color: var(--text); font-weight: 600; }
+  .progress-track { height: 8px; border-radius: 999px; background: var(--bg-soft); border: 1px solid var(--border); overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; border-radius: 999px; background: var(--grad); transition: width .3s ease; box-shadow: 0 0 14px rgba(99, 102, 241, 0.5); }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .kpi {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px;
+    transition: border-color .2s;
+  }
+  .kpi:hover { border-color: var(--border-strong); }
+  .kpi .k-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted-2); margin-bottom: 6px; }
+  .kpi .k-value { font-size: 26px; font-weight: 800; letter-spacing: -0.8px; line-height: 1; }
+  .kpi .k-sub { font-size: 11.5px; color: var(--muted-2); margin-top: 5px; }
+  .kpi.pos .k-value { color: var(--ok); }
+  .kpi.neg .k-value { color: var(--err); }
+  .kpi.neu .k-value { color: var(--neu); }
+  .kpi.acc .k-value { background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+
+  .charts { display: grid; grid-template-columns: 1.1fr 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+  @media (max-width: 900px) { .charts { grid-template-columns: 1fr; } }
+  .chart {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px;
+  }
+  .chart h4 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted-2); margin-bottom: 14px; }
+
+  /* donut */
+  .donut-wrap { display: flex; align-items: center; gap: 18px; }
+  .donut {
+    position: relative; width: 128px; height: 128px; border-radius: 50%; flex-shrink: 0;
+    background: conic-gradient(var(--ok) 0deg, var(--err) 0deg, var(--neu) 0deg, var(--bg-soft) 0deg);
+  }
+  .donut::after {
+    content: ""; position: absolute; inset: 21px; border-radius: 50%; background: var(--card);
+  }
+  .donut .center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; }
+  .donut .center b { font-size: 24px; font-weight: 800; letter-spacing: -0.6px; }
+  .donut .center span { font-size: 10px; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+  .donut-legend { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+  .legend-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .legend-row .sw { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+  .legend-row .l-name { color: var(--muted); }
+  .legend-row .l-val { margin-left: auto; font-weight: 700; }
+
+  /* bars (intenções / estrelas) */
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; font-size: 12.5px; }
+  .bar-row .b-label { width: 128px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+  .bar-row .b-track { flex: 1; height: 7px; border-radius: 999px; background: var(--bg-soft); overflow: hidden; }
+  .bar-row .b-fill { height: 100%; width: 0%; border-radius: 999px; background: var(--grad); transition: width .4s ease; }
+  .bar-row .b-val { width: 34px; text-align: right; font-weight: 700; color: var(--text); flex-shrink: 0; }
+  .bar-row.star .b-fill { background: linear-gradient(90deg, #f59e0b, #fde68a); }
+  .bar-row .empty { color: var(--muted-2); font-size: 12.5px; padding: 14px 0; }
+
+  /* ============ FEED ============ */
+  .feed-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .feed-head h3 { font-size: 15px; font-weight: 700; margin-right: 4px; }
+  .chip {
+    border: 1px solid var(--border); background: var(--bg-soft); color: var(--muted);
+    font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    border-radius: 999px; padding: 6px 14px; transition: all .2s;
+  }
+  .chip:hover { color: var(--text); }
+  .chip.active { background: rgba(99, 102, 241, 0.15); border-color: rgba(99, 102, 241, 0.45); color: #c7d2fe; }
+  .chip .n { opacity: 0.65; font-weight: 500; }
+
+  .feed {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    max-height: 560px; overflow-y: auto; padding: 6px;
+  }
+  .feed::-webkit-scrollbar { width: 8px; }
+  .feed::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 999px; }
+  .review {
+    display: flex; gap: 14px; padding: 15px 14px; border-bottom: 1px solid var(--border);
+    animation: fadeUp .25s ease;
+  }
+  .review:last-child { border-bottom: none; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0; display: flex;
+    align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #e0e7ff;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(56, 189, 248, 0.25));
+    border: 1px solid rgba(99, 102, 241, 0.4); text-transform: uppercase;
+  }
+  .review-body { flex: 1; min-width: 0; }
+  .review-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .review-top .u { font-size: 13px; font-weight: 600; }
+  .review-top .d { font-size: 12px; color: var(--muted-2); }
+  .review-top .st { margin-left: auto; color: var(--star); font-size: 12.5px; letter-spacing: 1.5px; white-space: nowrap; }
+  .review-text { font-size: 13.5px; color: #cbd5e1; }
+  .review-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .tag {
+    font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 10px;
+  }
+  .tag.positivo { color: var(--ok); background: rgba(52, 211, 153, 0.1); border: 1px solid rgba(52, 211, 153, 0.3); }
+  .tag.negativo { color: var(--err); background: rgba(251, 113, 133, 0.1); border: 1px solid rgba(251, 113, 133, 0.3); }
+  .tag.neutro { color: var(--neu); background: rgba(148, 163, 184, 0.1); border: 1px solid rgba(148, 163, 184, 0.3); }
+  .intent {
+    font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 10px;
+    color: #a5b4fc; background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.28);
+  }
+  .feed-empty { padding: 34px 20px; text-align: center; color: var(--muted-2); font-size: 13.5px; }
+  .feed-empty .mini-spin {
+    width: 26px; height: 26px; margin: 0 auto 12px; border-radius: 50%;
+    border: 3px solid var(--border-strong); border-top-color: var(--accent-2); animation: spin 0.9s linear infinite;
+  }
+  .feed-count { font-size: 12px; color: var(--muted-2); margin-left: auto; white-space: nowrap; }
+
+  footer { margin-top: 64px; border-top: 1px solid var(--border); padding: 22px 0 34px; }
+  .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--muted-2); font-size: 12.5px; }
+  .footer-inner a { color: var(--muted); text-decoration: none; }
+  .footer-inner a:hover { color: var(--text); }
+
+  @media (max-width: 560px) {
+    .search-card { flex-direction: column; align-items: stretch; }
+    .search-card select, .search-card .btn { width: 100%; }
+    .job-head .status-badge { margin-left: 0; }
+    .bar-row .b-label { width: 90px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-inner">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="lg" x1="4" y1="4" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#6366f1"/><stop offset="1" stop-color="#38bdf8"/>
+          </linearGradient>
+        </defs>
+        <circle cx="16" cy="16" r="13" stroke="url(#lg)" stroke-width="2.6" opacity="0.55"/>
+        <circle cx="16" cy="16" r="7" stroke="url(#lg)" stroke-width="2.6"/>
+        <circle cx="16" cy="16" r="2.4" fill="url(#lg)"/>
+        <path d="M16 9v-5M16 28v-5M9 16H4M28 16h-5" stroke="url(#lg)" stroke-width="2.4" stroke-linecap="round"/>
+      </svg>
+      Reputation <em>/ reputação de apps</em>
+    </div>
+    <div class="nav-right">
+      <span class="pill offline" id="healthPill"><span class="dot"></span><span id="healthTxt">verificando API…</span></span>
+      <a class="api-link" href="/docs" target="_blank" rel="noopener">API · Swagger</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <!-- ================= HERO ================= -->
+  <header class="hero">
+    <div class="hero-badge"><span class="pulse"></span> MVP · Monitor de reputação na Play Store</div>
+    <h1>Descubra o que os usuários <span class="grad">realmente dizem</span> sobre o seu app</h1>
+    <p>Colete avaliações, classifique sentimentos e entenda as intenções por trás de cada review — em tempo real, sem login.</p>
+
+    <form id="searchForm" class="search-card" autocomplete="off">
+      <input id="appInput" type="text" placeholder="Nome do aplicativo… (ex.: nubank, picpay)" aria-label="Nome do aplicativo">
+      <select id="countSelect" aria-label="Quantidade de avaliações">
+        <option value="50">50 reviews</option>
+        <option value="100" selected>100 reviews</option>
+        <option value="300">300 reviews</option>
+        <option value="500">500 reviews</option>
+      </select>
+      <button type="submit" class="btn" id="runBtn"><span class="spin"></span><span class="lbl">Analisar reputação</span></button>
+    </form>
+    <div class="examples" id="examples" aria-label="Exemplos rápidos">
+      <span>Experimente:</span>
+      <button type="button" data-app="nubank">Nubank</button>
+      <button type="button" data-app="picpay">PicPay</button>
+      <button type="button" data-app="ifood">iFood</button>
+      <button type="button" data-app="mercadolivre">Mercado Livre</button>
+    </div>
+  </header>
+
+  <!-- ================= PIPELINE (idle) ================= -->
+  <section id="pipeline">
+    <div class="section-title">Como funciona</div>
+    <div class="steps">
+      <div class="step">
+        <span class="num">1</span>
+        <div class="icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/></svg>
+        </div>
+        <h3>Coleta</h3>
+        <p>Buscamos as avaliações mais recentes do app na Play Store brasileira, no volume que você escolher.</p>
+      </div>
+      <div class="step">
+        <span class="num">2</span>
+        <div class="icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a4 4 0 014 4c0 1.3-.6 2.4-1.5 3.1A4 4 0 1017 13.5c.9.7 1.5 1.8 1.5 3.1a4 4 0 11-8 0c0-1.3.6-2.4 1.5-3.1A4 4 0 107 10.5C6.1 9.8 5.5 8.7 5.5 7.4A4 4 0 0112 2z"/></svg>
+        </div>
+        <h3>Análise</h3>
+        <p>Cada review é classificado por sentimento (positivo, negativo, neutro) e as intenções do usuário são extraídas.</p>
+      </div>
+      <div class="step">
+        <span class="num">3</span>
+        <div class="icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg>
+        </div>
+        <h3>Insights</h3>
+        <p>Acompanhe ao vivo o volume de elogios, críticas e os principais problemas citados — tudo em um painel.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= DASHBOARD ================= -->
+  <section id="dashboard" class="hidden">
+    <div class="banner err hidden" id="errorBanner"></div>
+    <div class="banner ok hidden" id="okBanner"></div>
+
+    <div class="job-head">
+      <span class="app-name" id="jobApp">—</span>
+      <span class="app-id" id="jobAppId"></span>
+      <span class="status-badge" id="jobStatus"><span class="dot"></span>aguardando</span>
+    </div>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-meta">
+        <span id="progressText">Preparando a coleta…</span>
+        <span><b id="progressPct">0%</b></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi acc"><div class="k-label">Coletados</div><div class="k-value" id="kColetados">0</div><div class="k-sub">reviews analisados</div></div>
+      <div class="kpi pos"><div class="k-label">Positivos</div><div class="k-value" id="kPos">0</div><div class="k-sub" id="kPosPct">0%</div></div>
+      <div class="kpi neg"><div class="k-label">Negativos</div><div class="k-value" id="kNeg">0</div><div class="k-sub" id="kNegPct">0%</div></div>
+      <div class="kpi neu"><div class="k-label">Neutros</div><div class="k-value" id="kNeu">0</div><div class="k-sub" id="kNeuPct">0%</div></div>
+      <div class="kpi"><div class="k-label">Novos no banco</div><div class="k-value" id="kInseridos">0</div><div class="k-sub">gravados no Postgres</div></div>
+      <div class="kpi"><div class="k-label">Já conhecidos</div><div class="k-value" id="kPulados">0</div><div class="k-sub">evitados (dedupe)</div></div>
+    </div>
+
+    <div class="charts">
+      <div class="chart">
+        <h4>Sentimento</h4>
+        <div class="donut-wrap">
+          <div class="donut" id="donut">
+            <div class="center"><b id="donutTotal">0</b><span>avaliados</span></div>
+          </div>
+          <div class="donut-legend">
+            <div class="legend-row"><span class="sw" style="background:var(--ok)"></span><span class="l-name">Positivos</span><span class="l-val" id="lPos">0</span></div>
+            <div class="legend-row"><span class="sw" style="background:var(--err)"></span><span class="l-name">Negativos</span><span class="l-val" id="lNeg">0</span></div>
+            <div class="legend-row"><span class="sw" style="background:var(--neu)"></span><span class="l-name">Neutros</span><span class="l-val" id="lNeu">0</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart">
+        <h4>Principais intenções</h4>
+        <div id="intentBars"><div class="bar-row"><span class="empty">Aguardando reviews…</span></div></div>
+      </div>
+
+      <div class="chart">
+        <h4>Distribuição de estrelas</h4>
+        <div id="starBars">
+          <div class="bar-row"><span class="empty">Aguardando reviews…</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feed-head">
+      <h3>Avaliações</h3>
+      <button class="chip active" data-filter="todos" type="button">Todos <span class="n" id="nTodos">0</span></button>
+      <button class="chip" data-filter="positivo" type="button">Positivos <span class="n" id="nPos">0</span></button>
+      <button class="chip" data-filter="negativo" type="button">Negativos <span class="n" id="nNeg">0</span></button>
+      <button class="chip" data-filter="neutro" type="button">Neutros <span class="n" id="nNeu">0</span></button>
+      <span class="feed-count" id="feedCount"></span>
+    </div>
+    <div class="feed" id="feed">
+      <div class="feed-empty"><div class="mini-spin"></div>A coleta começou — os reviews aparecem aqui ao vivo.</div>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="wrap footer-inner">
+    <span>Reputation API · MVP — coleta, análise de sentimento e intenções de reviews da Play Store.</span>
+    <span><a href="/docs" target="_blank" rel="noopener">Documentação da API</a> · <a href="/health" target="_blank" rel="noopener">/health</a></span>
+  </div>
+</footer>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+
+/* ---------- helpers ---------- */
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const stars = (n) => {
+  const v = Math.max(0, Math.min(5, Number(n) || 0));
+  return "★".repeat(v) + "☆".repeat(5 - v);
+};
+const plural = (n, one, many) => (n === 1 ? one : many);
+
+const INTENT_LABELS = {
+  elogio: "Elogio", problema_tecnico: "Problema técnico", erro_no_app: "Erro no app",
+  demora_no_atendimento: "Demora no atendimento", atendimento_ruim: "Atendimento ruim",
+  cobranca_indevida: "Cobrança indevida", reembolso: "Reembolso", cancelamento: "Cancelamento",
+  problema_com_pagamento: "Problema com pagamento", prazo_nao_cumprido: "Prazo não cumprido",
+  preco_alto: "Preço alto", qualidade_baixa: "Qualidade baixa", suporte_ineficiente: "Suporte ineficiente",
+  servico_indisponivel: "Serviço indisponível", dificuldade_de_acesso: "Dificuldade de acesso",
+  falta_de_retorno: "Falta de retorno", informacao_incorreta: "Informação incorreta",
+  duvida: "Dúvida", sugestao: "Sugestão", experiencia_positiva: "Experiência positiva",
+};
+const labelize = (k) => INTENT_LABELS[k] || k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+function fmtDate(v) {
+  if (!v) return "";
+  const d = new Date(v);
+  return isNaN(d) ? String(v) : d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+/* ---------- state ---------- */
+const state = {
+  running: false,
+  appId: "",
+  count: 0,
+  coletados: 0,
+  avaliados: 0,
+  positivos: 0,
+  negativos: 0,
+  neutros: 0,
+  inseridos: 0,
+  pulados: 0,
+  stars: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+  intencoes: {},
+  reviews: [],
+  filter: "todos",
+  es: null,
+};
+
+const MAX_REVIEWS = 300;
+
+/* ---------- render: dashboard pieces ---------- */
+function renderKPIs() {
+  $("kColetados").textContent = state.coletados;
+  $("kPos").textContent = state.positivos;
+  $("kNeg").textContent = state.negativos;
+  $("kNeu").textContent = state.neutros;
+  $("kInseridos").textContent = state.inseridos;
+  $("kPulados").textContent = state.pulados;
+  const t = state.avaliados || 1;
+  $("kPosPct").textContent = Math.round((state.positivos / t) * 100) + "%";
+  $("kNegPct").textContent = Math.round((state.negativos / t) * 100) + "%";
+  $("kNeuPct").textContent = Math.round((state.neutros / t) * 100) + "%";
+  $("nTodos").textContent = state.reviews.length;
+  $("nPos").textContent = state.positivos;
+  $("nNeg").textContent = state.negativos;
+  $("nNeu").textContent = state.neutros;
+}
+
+function renderDonut() {
+  const t = state.avaliados;
+  $("donutTotal").textContent = t;
+  $("lPos").textContent = state.positivos;
+  $("lNeg").textContent = state.negativos;
+  $("lNeu").textContent = state.neutros;
+  let donut = $("donut");
+  if (t === 0) {
+    donut.style.background = "conic-gradient(var(--bg-soft) 0deg, var(--bg-soft) 360deg)";
+    return;
+  }
+  const p1 = (state.positivos / t) * 360;
+  const p2 = p1 + (state.negativos / t) * 360;
+  donut.style.background = "conic-gradient(" +
+    "var(--ok) 0deg " + p1.toFixed(1) + "deg," +
+    "var(--err) " + p1.toFixed(1) + "deg " + p2.toFixed(1) + "deg," +
+    "var(--neu) " + p2.toFixed(1) + "deg 360deg)";
+}
+
+function renderIntentBars() {
+  const box = $("intentBars");
+  const entries = Object.entries(state.intencoes).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  if (!entries.length) {
+    box.innerHTML = '<div class="bar-row"><span class="empty">Nenhuma intenção identificada ainda.</span></div>';
+    return;
+  }
+  const max = entries[0][1];
+  box.innerHTML = entries.map(([k, v]) =>
+    '<div class="bar-row">' +
+      '<span class="b-label" title="' + esc(labelize(k)) + '">' + esc(labelize(k)) + "</span>" +
+      '<span class="b-track"><span class="b-fill" style="width:' + Math.max(4, (v / max) * 100).toFixed(1) + '%"></span></span>' +
+      '<span class="b-val">' + v + "</span>" +
+    "</div>"
+  ).join("");
+}
+
+function renderStarBars() {
+  const box = $("starBars");
+  const max = Math.max(1, ...Object.values(state.stars));
+  const rows = [5, 4, 3, 2, 1].map((n) => {
+    const v = state.stars[n];
+    return '<div class="bar-row star">' +
+      '<span class="b-label">' + "★".repeat(n) + (n === 1 ? " estrela" : " estrelas") + "</span>" +
+      '<span class="b-track"><span class="b-fill" style="width:' + ((v / max) * 100).toFixed(1) + '%"></span></span>' +
+      '<span class="b-val">' + v + "</span>" +
+    "</div>";
+  }).join("");
+  box.innerHTML = rows;
+}
+
+function renderFeed() {
+  const feed = $("feed");
+  const list = state.filter === "todos"
+    ? state.reviews
+    : state.reviews.filter((r) => r.sentimento === state.filter);
+  $("feedCount").textContent = list.length + " " + plural(list.length, "avaliação", "avaliações");
+  if (!list.length) {
+    feed.innerHTML = '<div class="feed-empty">' + (state.filter === "todos" && !state.coletados
+      ? '<div class="mini-spin"></div>A coleta começou — os reviews aparecem aqui ao vivo.'
+      : "Nenhuma avaliação " + (state.filter === "todos" ? "" : state.filter) + " por aqui.") + "</div>";
+    return;
+  }
+  feed.innerHTML = list.map((r) =>
+    '<div class="review">' +
+      '<div class="avatar">' + esc((r.review.usuario || "?").trim().charAt(0) || "?") + "</div>" +
+      '<div class="review-body">' +
+        '<div class="review-top">' +
+          '<span class="u">' + esc(r.review.usuario || "Usuário Play Store") + "</span>" +
+          '<span class="d">' + esc(fmtDate(r.review.data)) + "</span>" +
+          '<span class="st">' + stars(r.review.quantidade_estrelas) + "</span>" +
+        "</div>" +
+        '<div class="review-text">' + esc(r.review.review || "") + "</div>" +
+        '<div class="review-tags">' +
+          '<span class="tag ' + esc(r.sentimento) + '">' + esc(r.sentimento) + "</span>" +
+          (r.intencoes || []).map((i) => '<span class="intent">' + esc(labelize(i)) + "</span>").join("") +
+        "</div>" +
+      "</div>" +
+    "</div>"
+  ).join("");
+}
+
+function renderAll() {
+  renderKPIs();
+  renderDonut();
+  renderIntentBars();
+  renderStarBars();
+  renderFeed();
+}
+
+/* ---------- progress & status ---------- */
+function setStatus(label, kind) {
+  const el = $("jobStatus");
+  el.className = "status-badge " + kind;
+  el.innerHTML = kind === "running" ? '<span class="dot"></span>' + label : label;
+}
+
+function setProgress(pct, text) {
+  $("progressFill").style.width = Math.min(100, Math.max(0, pct)).toFixed(1) + "%";
+  $("progressPct").textContent = Math.round(pct) + "%";
+  $("progressText").textContent = text;
+}
+
+function showBanner(kind, msg) {
+  const el = kind === "err" ? $("errorBanner") : $("okBanner");
+  $("okBanner").classList.add("hidden");
+  $("errorBanner").classList.add("hidden");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+}
+
+function hideBanners() {
+  $("okBanner").classList.add("hidden");
+  $("errorBanner").classList.add("hidden");
+}
+
+/* ---------- event handling (SSE) ---------- */
+function handleEvent(evt) {
+  if (evt.type === "start") {
+    state.appId = evt.app_id || "";
+    state.count = evt.count || 0;
+    $("jobApp").textContent = evt.termo || evt.app_id || "—";
+    $("jobAppId").textContent = state.appId;
+    setStatus("Coletando avaliações…", "running");
+    setProgress(0, "Conectado ao stream — coletando avaliações de " + (evt.app_id || "…") + "…");
+  }
+
+  else if (evt.type === "review") {
+    const rev = evt.review || {};
+    state.coletados = (evt.progresso && evt.progresso.coletadas) || state.coletados + 1;
+    state.avaliados += 1;
+    if (evt.sentimento === "positivo") state.positivos += 1;
+    else if (evt.sentimento === "negativo") state.negativos += 1;
+    else state.neutros += 1;
+    if (evt.inserido) state.inseridos += 1;
+    else state.pulados += 1;
+
+    const s = Number(rev.quantidade_estrelas) || 0;
+    if (s >= 1 && s <= 5) state.stars[s] += 1;
+
+    (evt.intencoes || []).forEach((i) => { state.intencoes[i] = (state.intencoes[i] || 0) + 1; });
+
+    state.reviews.push({ review: rev, sentimento: evt.sentimento, intencoes: evt.intencoes || [] });
+    if (state.reviews.length > MAX_REVIEWS) state.reviews.shift();
+
+    renderAll();
+    const pct = state.count ? (state.coletados / state.count) * 100 : 0;
+    setProgress(pct, "Coletadas " + state.coletados + " · avaliadas " + state.avaliados + " · " +
+      state.inseridos + " novas no banco" + (state.pulados ? " · " + state.pulados + " já conhecidas" : "") + "…");
+  }
+
+  else if (evt.type === "done") {
+    const r = evt.resumo || {};
+    state.coletados = r.coletadas ?? state.coletados;
+    state.avaliados = r.avaliadas ?? state.avaliados;
+    state.inseridos = r.inseridas ?? state.inseridos;
+    state.pulados = r.puladas ?? state.pulados;
+    state.positivos = r.positivos ?? state.positivos;
+    state.negativos = r.negativos ?? state.negativos;
+    state.neutros = r.neutros ?? state.neutros;
+    renderAll();
+    setStatus("Concluído", "done");
+    setProgress(100, "Análise concluída: " + state.coletados + " coletadas · " + state.avaliados + " avaliadas · " +
+      state.inseridos + " novas · " + state.pulados + " já conhecidas.");
+    showBanner("ok", "✔ Análise concluída com sucesso. " + state.inseridos + " novas avaliações gravadas no banco" +
+      (state.pulados ? " e " + state.pulados + " duplicadas ignoradas." : "."));
+    state.running = false;
+    $("runBtn").disabled = false;
+    $("runBtn").classList.remove("loading");
+    $("runBtn").querySelector(".lbl").textContent = "Analisar reputação";
+  }
+
+  else if (evt.type === "error") {
+    setStatus("Erro", "error");
+    setProgress(0, "Erro na coleta.");
+    showBanner("err", "✖ " + (evt.message || "Falha desconhecida no job."));
+    state.running = false;
+    $("runBtn").disabled = false;
+    $("runBtn").classList.remove("loading");
+    $("runBtn").querySelector(".lbl").textContent = "Analisar reputação";
+  }
+}
+
+/* ---------- run job ---------- */
+async function startJob() {
+  const app = $("appInput").value.trim();
+  if (!app) { $("appInput").focus(); return; }
+
+  hideBanners();
+  $("pipeline").classList.add("hidden");
+  $("dashboard").classList.remove("hidden");
+
+  // reset
+  Object.assign(state, {
+    running: true, appId: "", count: 0, coletados: 0, avaliados: 0,
+    positivos: 0, negativos: 0, neutros: 0, inseridos: 0, pulados: 0,
+    stars: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, intencoes: {}, reviews: [], filter: "todos",
+  });
+  $("jobApp").textContent = app;
+  $("jobAppId").textContent = "";
+  setStatus("Iniciando…", "running");
+  setProgress(0, "Criando job de coleta…");
+  document.querySelectorAll(".chip[data-filter]").forEach((c) => c.classList.toggle("active", c.dataset.filter === "todos"));
+  renderAll();
+
+  const btn = $("runBtn");
+  btn.disabled = true;
+  btn.classList.add("loading");
+  btn.querySelector(".lbl").textContent = "Coletando…";
+
+  let res;
+  try {
+    res = await fetch("/collect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ app_id: app, count: Number($("countSelect").value) }),
+    });
+  } catch (e) {
+    setStatus("Erro", "error");
+    showBanner("err", "✖ Não foi possível falar com a API (" + e.message + "). Confira se o servidor está rodando.");
+    btn.disabled = false; btn.classList.remove("loading");
+    btn.querySelector(".lbl").textContent = "Analisar reputação";
+    state.running = false;
+    return;
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    setStatus("Erro", "error");
+    showBanner("err", "✖ " + (data.detail || ("Falha na API (HTTP " + res.status + ").")));
+    btn.disabled = false; btn.classList.remove("loading");
+    btn.querySelector(".lbl").textContent = "Analisar reputação";
+    state.running = false;
+    return;
+  }
+
+  const jobId = data.job_id;
+  setProgress(2, "Job " + jobId + " criado — conectando ao stream…");
+
+  if (state.es) state.es.close();
+  const es = new EventSource("/stream/" + jobId);
+  state.es = es;
+  es.onmessage = (msg) => {
+    try { handleEvent(JSON.parse(msg.data)); } catch { /* ignora evento malformado */ }
+  };
+  es.onerror = () => {
+    if (es.readyState === EventSource.CLOSED && state.running) {
+      setStatus("Reconectando…", "running");
+    }
+  };
+}
+
+/* ---------- wiring ---------- */
+$("searchForm").addEventListener("submit", (e) => { e.preventDefault(); startJob(); });
+document.querySelectorAll("#examples button").forEach((b) => {
+  b.addEventListener("click", () => {
+    $("appInput").value = b.dataset.app;
+    $("appInput").focus();
+  });
+});
+document.querySelectorAll(".chip[data-filter]").forEach((c) => {
+  c.addEventListener("click", () => {
+    document.querySelectorAll(".chip[data-filter]").forEach((x) => x.classList.toggle("active", x === c));
+    state.filter = c.dataset.filter;
+    renderFeed();
+  });
+});
+
+/* health pill */
+fetch("/health", { cache: "no-store" })
+  .then((r) => r.json())
+  .then((d) => {
+    const ok = d && d.status === "ok";
+    $("healthPill").className = "pill " + (ok ? "online" : "offline");
+    $("healthPill").querySelector(".dot").className = "dot";
+    $("healthTxt").textContent = ok ? "API online" : "API com problema";
+  })
+  .catch(() => {
+    $("healthPill").className = "pill offline";
+    $("healthTxt").textContent = "API offline";
+  });
+
+/* ---------- carregar dados ja salvos (/recent) ---------- */
+function loadRecent() {
+  fetch("/recent", { cache: "no-store" })
+    .then((r) => r.json())
+    .then((d) => {
+      const rows = (d && d.rows) || [];
+      if (!rows.length) return;
+      $("dashboard").classList.remove("hidden");
+      Object.assign(state, {
+        running: false, count: 0, coletados: 0, avaliados: 0,
+        positivos: 0, negativos: 0, neutros: 0, inseridos: 0, pulados: 0,
+        stars: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, intencoes: {}, reviews: [], filter: "todos",
+      });
+      $("jobApp").textContent = rows[0].empresa || "últimos dados";
+      $("jobAppId").textContent = "";
+      rows.slice().reverse().forEach((row) => {
+        handleEvent({
+          type: "review",
+          review: { review: row.review, data: row.data, quantidade_estrelas: row.quantidade_estrelas, usuario: "★" },
+          sentimento: row.sentimento || "neutro",
+          intencoes: row.intencoes || [],
+          inserido: true,
+          progresso: { coletadas: 0, avaliadas: 0 },
+        });
+      });
+      setStatus("Dados salvos", "done");
+      setProgress(100, "Mostrando as últimas " + rows.length + " avaliações salvas no banco. Digite um app para iniciar uma coleta nova.");
+      $("pipeline").classList.add("hidden");
+    })
+    .catch(() => { /* API fora: mantém a tela inicial */ });
+}
+loadRecent();
+
+/* ---------- test/sim hook (dev only) ---------- */
+window.__REPUTEST = {
+  handle: handleEvent,
+  run(events) {
+    $("pipeline").classList.add("hidden");
+    $("dashboard").classList.remove("hidden");
+    Object.assign(state, { running: true, count: 100 });
+    events.forEach(handleEvent);
+    return { coletados: state.coletados, positivos: state.positivos, negativos: state.negativos };
+  },
+  state: () => ({ ...state }),
+};
+</script>
+</body>
+</html>
